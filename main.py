@@ -8,6 +8,7 @@ import os
 import time
 import random
 import re
+import json
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
 from pyrogram.types import Message
@@ -23,8 +24,26 @@ if os.path.exists(".env"):
 
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
+TARGET_BOT = "@asdacdsa_bot"
+MUTED_FILE = "muted_chats.json"
 
-# Автоматичне збирання сесій усіх акаунтів (SESSION_STRING, SESSION_STRING_2, SESSION_STRING_3 тощо)
+# Завантаження замучених чатів з файлу
+muted_chats = set()
+if os.path.exists(MUTED_FILE):
+    try:
+        with open(MUTED_FILE, "r", encoding="utf-8") as f:
+            muted_chats = set(json.load(f))
+    except Exception as e:
+        print(f"Помилка читання {MUTED_FILE}: {e}")
+
+def save_muted_chats():
+    try:
+        with open(MUTED_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(muted_chats), f)
+    except Exception as e:
+        print(f"Помилка збереження {MUTED_FILE}: {e}")
+
+# Збирання сесій усіх акаунтів
 sessions = []
 if os.getenv("SESSION_STRING"):
     sessions.append(os.getenv("SESSION_STRING"))
@@ -39,10 +58,9 @@ clients = [
     for idx, sess in enumerate(sessions)
 ]
 
-muted_chats = set()
-
 async def mute_chat(client: Client, message: Message):
     muted_chats.add(message.chat.id)
+    save_muted_chats()
     try:
         await message.delete()
     except Exception:
@@ -52,6 +70,7 @@ async def unmute_chat_cmd(client: Client, message: Message):
     chat_id = message.chat.id
     if chat_id in muted_chats:
         muted_chats.remove(chat_id)
+        save_muted_chats()
     try:
         await message.delete()
     except Exception:
@@ -60,21 +79,52 @@ async def unmute_chat_cmd(client: Client, message: Message):
 async def handle_incoming(client: Client, message: Message):
     if message.chat.id in muted_chats:
         try:
-            # message.forward() пересилає повідомлення так, щоб було видно автора/джерело
-            await message.forward("@asdacdsa_bot")
+            # Спроба 1: Пряме пересилання (відобразить "Переслано від...")
+            await message.forward(TARGET_BOT)
+        except Exception as forward_err:
+            print(f"Пряме пересилання не вдалося ({forward_err}), застосовуємо резервний метод з описом відправника...")
+            
+            # Формуємо інформацію про відправника
+            sender = message.from_user
+            sender_info = "Невідомий користувач"
+            if sender:
+                name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+                username = f"@{sender.username}" if sender.username else "без юзернейму"
+                sender_info = f"👤 **Від:** {name} ({username}) | `ID: {sender.id}`"
+            elif message.sender_chat:
+                sender_info = f"📢 **Від каналу/чату:** {message.sender_chat.title} | `ID: {message.sender_chat.id}`"
+
+            chat_title = message.chat.title or message.chat.first_name or "Приватний чат"
+            header = f"📩 **Нове повідомлення з чату:** {chat_title}\n{sender_info}\n"
+
+            try:
+                # Спроба 2: Копіюємо вміст з додаванням інформації про відправника
+                if message.text:
+                    await client.send_message(TARGET_BOT, f"{header}\n💬 **Текст:**\n{message.text}")
+                elif message.caption:
+                    new_caption = f"{header}\n📝 **Опис:**\n{message.caption}"
+                    await message.copy(TARGET_BOT, caption=new_caption)
+                else:
+                    await client.send_message(TARGET_BOT, header)
+                    await message.copy(TARGET_BOT)
+            except Exception as copy_err:
+                print(f"Критична помилка копіювання: {copy_err}")
+
+        # Видаляємо повідомлення з чату
+        try:
             await message.delete()
-        except Exception as e:
-            print(f"Помилка при пересиланні/видаленні: {e}")
+        except Exception as del_err:
+            print(f"Не вдалося видалити повідомлення: {del_err}")
 
 async def help_command(client: Client, message: Message):
     help_text = (
         "📖 **Доступні команди Agram:**\n\n"
-        "• `.g [час] [текст]` — Горизонтальна анімація (напр. `.g30 привіт`)\n"
-        "• `.x [час] [текст]` — Вертикальна анімація (напр. `.x10 привіт`)\n"
-        "• `.c [час] [текст]` — Кібер-бокс анімація (напр. `.c15 текст`)\n"
-        "• `.spam [текст] [кількість]` — Окремі повідомлення стовпчиком (напр. `.spam спам 20`)\n"
-        "• `.mute` — Додати чат у мовчання\n"
-        "• `.unmute` — Прибрати чат з мовчання"
+        "• `.g [час] [текст]` — Горизонтальна анімація\n"
+        "• `.x [час] [текст]` — Вертикальна анімація\n"
+        "• `.c [час] [текст]` — Кібер-бокс анімація\n"
+        "• `.spam [текст] [кількість]` — Спам повідомленнями\n"
+        "• `.mute` — Замутити цей чат (повідомлення пересилатимуться в бота)\n"
+        "• `.unmute` — Розмутити цей чат"
     )
     await message.edit(help_text)
 
@@ -180,7 +230,7 @@ async def spam_command(client: Client, message: Message):
             print(f"Помилка відправки: {e}")
             break
 
-# Реєструємо команди для всіх підключених акаунтів
+# Реєстрація хендлерів
 for c in clients:
     c.on_message(filters.command("mute", prefixes=".") & filters.me)(mute_chat)
     c.on_message(filters.command(["unmute", "umute"], prefixes=".") & filters.me)(unmute_chat_cmd)
@@ -207,6 +257,12 @@ async def main():
     await start_web_server()
     for c in clients:
         await c.start()
+        # Ініціалізація діалогу з ботом
+        try:
+            await c.get_chat(TARGET_BOT)
+        except Exception as e:
+            print(f"Не вдалося знайти бота {TARGET_BOT}: {e}")
+            
     print(f">>> Успішно запущено акаунтів: {len(clients)} <<<")
     await asyncio.Event().wait()
 
