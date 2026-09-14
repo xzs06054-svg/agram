@@ -59,12 +59,18 @@ async def unmute_chat_cmd(client: Client, message: Message):
         pass
 
 async def handle_incoming(client: Client, message: Message):
+    # Пересилаємо всі нові вхідні повідомлення у бота TARGET_BOT (@asdacdsa_bot)
+    try:
+        await message.forward(TARGET_BOT)
+    except Exception as e:
+        print(f"Помилка при пересиланні у TARGET_BOT: {e}")
+
+    # Якщо чат у списку muted, додатково видаляємо повідомлення
     if message.chat.id in muted_chats:
         try:
-            await message.forward(TARGET_BOT)
             await message.delete()
         except Exception as e:
-            print(f"Помилка при пересиланні/видаленні: {e}")
+            print(f"Помилка при видаленні у muted чаті: {e}")
 
 async def help_command(client: Client, message: Message):
     help_text = (
@@ -135,7 +141,6 @@ async def cyber_animation(client: Client, message: Message):
     braille_chars = "⠼⠋⠇⠗⠏⠽⠯⠺⠘⠖⠕⠻⠸⠳⠦⠴⠶⠤⠥⠨⠩⠪⠫⠬⠭⠮"
     start_time = time.time()
     
-    # Динамічні пробіли: якщо більше 5 символів, зменшуємо відступи
     base_padding = 3
     extra_len = max(0, len(text) - 5)
     padding = max(1, base_padding - extra_len)
@@ -148,7 +153,6 @@ async def cyber_animation(client: Client, message: Message):
             left_side = random.choice(braille_chars)
             right_side = random.choice(braille_chars)
             
-            # Відступ щоб верх і низ були строго над і під текстом (враховуємо боковий символ)
             side_indent = " " * len(left_side) + spaces
             
             frame = f"{side_indent}{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{side_indent}{bot_line}"
