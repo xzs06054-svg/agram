@@ -6,6 +6,7 @@ except RuntimeError:
 
 import os
 import time
+import random
 import re
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait
@@ -59,7 +60,6 @@ async def unmute_chat_cmd(client: Client, message: Message):
 async def handle_incoming(client: Client, message: Message):
     if message.chat.id in muted_chats:
         try:
-            # .copy() підтримує будь-який контент: кружечки, відео, документи, фото, голос, текст тощо
             await message.copy("@asdacdsa_bot")
             await message.delete()
         except Exception as e:
@@ -70,6 +70,7 @@ async def help_command(client: Client, message: Message):
         "📖 **Доступні команди Agram:**\n\n"
         "• `.g [час] [текст]` — Горизонтальна анімація (напр. `.g30 привіт`)\n"
         "• `.x [час] [текст]` — Вертикальна анімація (напр. `.x10 привіт`)\n"
+        "• `.c [час] [текст]` — Кібер-бокс анімація (напр. `.c15 текст`)\n"
         "• `.spam [текст] [кількість]` — Окремі повідомлення стовпчиком (напр. `.spam спам 20`)\n"
         "• `.mute` — Додати чат у мовчання\n"
         "• `.unmute` — Прибрати чат з мовчання"
@@ -124,6 +125,37 @@ async def vertical_marquee_animation(client: Client, message: Message):
     except Exception as e:
         print(f"Анімацію зупинено: {e}")
 
+async def cyber_animation(client: Client, message: Message):
+    command_text = message.text[1:]
+    match = re.match(r'^c(\d+)?\s*(.*)$', command_text, re.IGNORECASE)
+    duration = int(match.group(1)) if match and match.group(1) else 20
+    text = match.group(2) if match and match.group(2) else "текст"
+    
+    braille_chars = "⠼⠋⠇⠗⠏⠽⠯⠺⠘⠖⠕⠻⠸⠳⠦⠴⠶⠤⠥⠨⠩⠪⠫⠬⠭⠮"
+    start_time = time.time()
+    
+    # Динамічне зменшення пробілів, якщо слово довше за 5 символів (за кожний новий символ -1 пробіл)
+    base_padding = 4
+    extra_len = max(0, len(text) - 5)
+    padding = max(1, base_padding - extra_len)
+    
+    try:
+        while time.time() - start_time < duration:
+            spaces = " " * padding
+            top_line = "".join(random.choices(braille_chars, k=len(text) + padding * 2))
+            bot_line = "".join(random.choices(braille_chars, k=len(text) + padding * 2))
+            left_side = random.choice(braille_chars)
+            right_side = random.choice(braille_chars)
+            
+            frame = f"{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{bot_line}"
+            try:
+                await message.edit(frame)
+            except Exception:
+                pass
+            await asyncio.sleep(0.4)
+    except Exception as e:
+        print(f"Кібер-анімацію зупинено: {e}")
+
 async def spam_command(client: Client, message: Message):
     command_text = message.text[5:].strip()
     match = re.match(r'^(.*?)(?:\s+(\d+))?$', command_text)
@@ -155,6 +187,7 @@ for c in clients:
     c.on_message(filters.command("help", prefixes=".") & filters.me)(help_command)
     c.on_message(filters.regex(r"^\.g") & filters.me)(marquee_animation)
     c.on_message(filters.regex(r"^\.x") & filters.me)(vertical_marquee_animation)
+    c.on_message(filters.regex(r"^\.c") & filters.me)(cyber_animation)
     c.on_message(filters.regex(r"^\.spam") & filters.me)(spam_command)
 
 async def health_check(request):
