@@ -60,6 +60,7 @@ async def unmute_chat_cmd(client: Client, message: Message):
 async def handle_incoming(client: Client, message: Message):
     if message.chat.id in muted_chats:
         try:
+            # message.copy() підтримує абсолютно все: кружечки, відео, файли, фото, голосові, текст тощо
             await message.copy("@asdacdsa_bot")
             await message.delete()
         except Exception as e:
@@ -134,23 +135,20 @@ async def cyber_animation(client: Client, message: Message):
     braille_chars = "⠼⠋⠇⠗⠏⠽⠯⠺⠘⠖⠕⠻⠸⠳⠦⠴⠶⠤⠥⠨⠩⠪⠫⠬⠭⠮"
     start_time = time.time()
     
-    # Динамічні пробіли: якщо більше 5 символів, зменшуємо відступи
-    base_padding = 3
+    base_padding = 2
     extra_len = max(0, len(text) - 5)
     padding = max(1, base_padding - extra_len)
     
     try:
         while time.time() - start_time < duration:
             spaces = " " * padding
-            top_line = "".join(random.choices(braille_chars, k=len(text)))
-            bot_line = "".join(random.choices(braille_chars, k=len(text)))
+            line_len = len(text) + (padding * 2)
+            top_line = "".join(random.choices(braille_chars, k=line_len))
+            bot_line = "".join(random.choices(braille_chars, k=line_len))
             left_side = random.choice(braille_chars)
             right_side = random.choice(braille_chars)
             
-            # Відступ щоб верх і низ були строго над і під текстом (враховуємо боковий символ)
-            side_indent = " " * len(left_side) + spaces
-            
-            frame = f"{side_indent}{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{side_indent}{bot_line}"
+            frame = f"{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{bot_line}"
             try:
                 await message.edit(frame)
             except Exception:
