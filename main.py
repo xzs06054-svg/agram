@@ -12,7 +12,6 @@ from pyrogram.errors import FloodWait
 from pyrogram.types import Message
 from aiohttp import web
 
-# Читаємо .env локально, якщо він існує
 if os.path.exists(".env"):
     with open(".env", "r", encoding="utf-8") as f:
         for line in f:
@@ -24,7 +23,7 @@ if os.path.exists(".env"):
 API_ID = int(os.getenv("API_ID"))
 API_HASH = os.getenv("API_HASH")
 
-# Автоматичний збір усіх сесій (SESSION_STRING, SESSION_STRING_2, SESSION_STRING_3 тощо)
+# Автоматичне збирання сесій усіх акаунтів (SESSION_STRING, SESSION_STRING_2, SESSION_STRING_3 тощо)
 sessions = []
 if os.getenv("SESSION_STRING"):
     sessions.append(os.getenv("SESSION_STRING"))
@@ -39,20 +38,17 @@ clients = [
     for idx, sess in enumerate(sessions)
 ]
 
-# Снимок замучених чатів (використовуємо str для надійності)
 muted_chats = set()
 
-# --- КОМАНДИ МУТУ ---
 async def mute_chat(client: Client, message: Message):
-    chat_id = str(message.chat.id)
-    muted_chats.add(chat_id)
+    muted_chats.add(message.chat.id)
     try:
         await message.delete()
     except Exception:
         pass
 
 async def unmute_chat_cmd(client: Client, message: Message):
-    chat_id = str(message.chat.id)
+    chat_id = message.chat.id
     if chat_id in muted_chats:
         muted_chats.remove(chat_id)
     try:
@@ -61,14 +57,14 @@ async def unmute_chat_cmd(client: Client, message: Message):
         pass
 
 async def handle_incoming(client: Client, message: Message):
-    if str(message.chat.id) in muted_chats:
+    if message.chat.id in muted_chats:
         try:
-            await message.forward("masdasdm_bot")
+            # .copy() підтримує будь-який контент: кружечки, відео, документи, фото, голос, текст тощо
+            await message.copy("@asdacdsa_bot")
             await message.delete()
         except Exception as e:
-            print(f"Помилка при пересиланні/видаленні: {e}")
+            print(f"Помилка при копіюванні/видаленні: {e}")
 
-# --- ІНШІ КОМАНДИ ---
 async def help_command(client: Client, message: Message):
     help_text = (
         "📖 **Доступні команди Agram:**\n\n"
@@ -151,7 +147,7 @@ async def spam_command(client: Client, message: Message):
             print(f"Помилка відправки: {e}")
             break
 
-# Реєструємо всі обробники для кожного підключеного акаунта
+# Реєструємо команди для всіх підключених акаунтів
 for c in clients:
     c.on_message(filters.command("mute", prefixes=".") & filters.me)(mute_chat)
     c.on_message(filters.command(["unmute", "umute"], prefixes=".") & filters.me)(unmute_chat_cmd)
@@ -161,9 +157,8 @@ for c in clients:
     c.on_message(filters.regex(r"^\.x") & filters.me)(vertical_marquee_animation)
     c.on_message(filters.regex(r"^\.spam") & filters.me)(spam_command)
 
-# Сервер для підтримки роботи на Render (24/7)
 async def health_check(request):
-    return web.Response(text="Agram Active!")
+    return web.Response(text="Agram Multi-Account Active!")
 
 async def start_web_server():
     server = web.Application()
@@ -178,7 +173,7 @@ async def main():
     await start_web_server()
     for c in clients:
         await c.start()
-    print(f">>> Бот працює! Підключено акаунтів: {len(clients)} <<<")
+    print(f">>> Успішно запущено акаунтів: {len(clients)} <<<")
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
