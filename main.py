@@ -134,20 +134,23 @@ async def cyber_animation(client: Client, message: Message):
     braille_chars = "⠼⠋⠇⠗⠏⠽⠯⠺⠘⠖⠕⠻⠸⠳⠦⠴⠶⠤⠥⠨⠩⠪⠫⠬⠭⠮"
     start_time = time.time()
     
-    # Динамічне зменшення пробілів, якщо слово довше за 5 символів (за кожний новий символ -1 пробіл)
-    base_padding = 4
+    # Динамічні пробіли: якщо більше 5 символів, зменшуємо відступи
+    base_padding = 3
     extra_len = max(0, len(text) - 5)
     padding = max(1, base_padding - extra_len)
     
     try:
         while time.time() - start_time < duration:
             spaces = " " * padding
-            top_line = "".join(random.choices(braille_chars, k=len(text) + padding * 2))
-            bot_line = "".join(random.choices(braille_chars, k=len(text) + padding * 2))
+            top_line = "".join(random.choices(braille_chars, k=len(text)))
+            bot_line = "".join(random.choices(braille_chars, k=len(text)))
             left_side = random.choice(braille_chars)
             right_side = random.choice(braille_chars)
             
-            frame = f"{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{bot_line}"
+            # Відступ щоб верх і низ були строго над і під текстом (враховуємо боковий символ)
+            side_indent = " " * len(left_side) + spaces
+            
+            frame = f"{side_indent}{top_line}\n{left_side}{spaces}{text}{spaces}{right_side}\n{side_indent}{bot_line}"
             try:
                 await message.edit(frame)
             except Exception:
