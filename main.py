@@ -60,11 +60,11 @@ async def unmute_chat_cmd(client: Client, message: Message):
 async def handle_incoming(client: Client, message: Message):
     if message.chat.id in muted_chats:
         try:
-            # message.copy() підтримує абсолютно все: кружечки, відео, файли, фото, голосові, текст тощо
-            await message.copy("@asdacdsa_bot")
+            # message.forward() пересилає повідомлення так, щоб було видно автора/джерело
+            await message.forward("@asdacdsa_bot")
             await message.delete()
         except Exception as e:
-            print(f"Помилка при копіюванні/видаленні: {e}")
+            print(f"Помилка при пересиланні/видаленні: {e}")
 
 async def help_command(client: Client, message: Message):
     help_text = (
